@@ -3,8 +3,10 @@
 
 :local gpstext [/file get gps.txt contents];
 
-:local serverurl "demo5.traccar.org";
-:local serverport "5055";
+#CHANGE THE 3 LINES BELOW TO POINT TO YOUR TRACCAR SERVER
+:local serverurl "gps.server.host";
+:local serverport "8455";
+:local traccarid "3126xxx";
 
 
 :local valid false;
@@ -129,7 +131,7 @@
     :set zeros ($zeros . "0");
 };
 
-:local newlat ($latdegree . "." . $zeros . $latfract);
+:local newlat ($latdegree . $zeros . $latfract);
 :local newlatlink ($latdegreelink . "." . $zeros . $latfract);
 
 :local coordinates ($newlong . "," . $newlat);
@@ -167,11 +169,11 @@
 :return (($days * 86400) + ($ore * 3600) + ($minute * 60) + $secunde - [/system clock get gmt-offset]);
 }
 
-# :log info message="GPS Script: Posting update";
+:log info message="GPS Script: Posting update";
 
 :local mystamp [$timestamp];
 
-:do {/tool fetch keep-result=no url=("http://" . $serverurl . ":" . $serverport ."/\?id=$imei&lat=$newlat&lon=$newlong&timestamp=$mystamp&altitude=$altitude&speed=$speed&course=$bearing&satelites=$satellites&gps=$satellites")
+:do {/tool fetch keep-result=no url=("https://" . $serverurl . ":" . $serverport ."/\?id=$traccarid&lat=$newlat&lon=$newlong&timestamp=$mystamp&altitude=$altitude&speed=$speed&course=$bearing&satelites=$satellites&gps=$satellites")
 } on-error={:log error message="Fetch failed..."}
 
-# :log info message="GPS Script: Posting update DONE";
+:log info message="GPS Script: Posting update DONE";
