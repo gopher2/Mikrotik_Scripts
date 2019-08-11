@@ -5,12 +5,20 @@
 :local debug 0;
 
 #QUERY THE SYSTEM AND DUMP DATA INTO FILES FOR PARSING
+:log info message="GPS Script: Polling System Data";
 :system gps monitor once file="gps.txt";
 :local gpstext [/file get gps.txt contents];
 :interface lte info lte1 file="lte1info.txt";
 :local lte1info [:file get lte1info.txt contents];
 
 # PARSE STRINGS
+
+:local validstart [:find $gpstext "valid" -1];
+:local validend [:find $gpstext "\n" $validstart];
+
+# PROCEEDED IF WE HAVE VAILD GPS
+:if ([:find $gpstext "yes" $validstart] > 0) do={
+
 :local longstart [:find $gpstext "longitude" -1];
 :local longend [:find $gpstext "\n" $longstart];
 :local longitude [:pick $gpstext ($longstart + 11) $longend];
@@ -64,3 +72,5 @@
 } on-error={:log error message="Fetch failed..."}
 
 :log info message="GPS Script: Posting update DONE";
+}
+:log info message="GPS Script: Script Terminated";
