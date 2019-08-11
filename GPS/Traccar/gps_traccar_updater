@@ -1,33 +1,32 @@
-:system gps monitor once file="gps.txt";
-:interface lte info lte1 file="lte1info.txt";
-
-:local gpstext [/file get gps.txt contents];
-
 #CHANGE THE 3 LINES BELOW TO POINT TO YOUR TRACCAR SERVER
-:local serverurl "gps.server.host";
+:local serverurl "gps.moses.host";
 :local serverport "8455";
-:local traccarid "3126xxx";
+:local traccarid "355509090063851";
+:local debug 0;
 
+#QUERY THE SYSTEM AND DUMP DATA INTO FILES FOR PARSING
+:system gps monitor once file="gps.txt";
+:local gpstext [/file get gps.txt contents];
+:interface lte info lte1 file="lte1info.txt";
+:local lte1info [:file get lte1info.txt contents];
 
-:local valid false;
-:local zeros "";
-
-# GPS Info
-:local myspeed  [:find $gpstext "speed" -1];
-:local myalt  [:find $gpstext "altitude" -1];
-:local mytime [:find $gpstext "date-and-time" -1];
+# PARSE STRINGS
 :local longstart [:find $gpstext "longitude" -1];
 :local longend [:find $gpstext "\n" $longstart];
+:local longitude [:pick $gpstext ($longstart + 11) $longend];
+
 :local latstart [:find $gpstext "latitude" -1];
 :local latend [:find $gpstext "\n" $latstart];
-:local validstart [:find $gpstext "valid" -1];
-:local validend [:find $gpstext "\n" $validstart];
+:local latitude [:pick $gpstext (latstart + 10) $latend];
+
 :local speedstart [:find $gpstext "speed"];
 :local speedend [:find $gpstext "." $speedstart];
 :local speed [;pick $gpstext ($speedstart +7) ($speedend +3)];
+
 :local altitudestart [:find $gpstext "altitude"];
 :local altitudeend [:find $gpstext "." $altitudestart];
 :local altitude [;pick $gpstext ($altitudestart +10) ($altitudeend +3)];
+
 :local satellitesstart [:find $gpstext "satellites"];
 :local satellitesend [:find $gpstext "\n" $satellitesstart];
 :local satellites [;pick $gpstext ($satellitesstart +12) ($satellitesend)];
@@ -36,144 +35,32 @@
 :local bearingend [:find $gpstext "\n" $bearingstart];
 :local bearing [;pick $gpstext ($bearingstart +15) ($bearingend -10)];
 
+:local rsrpstart  [:find $lte1info "rsrp"];
+:local rsrpend [:find $lte1info "\n" $rsrpstart];
+:local rsrp [:pick $lte1info ($rsrpstart + 6) ($rsrpend-3)];
 
+:local url "?id=$traccarid&lat=$latitude&lon=$longitude&speed=$speed&bearing=$bearing&altitude=$altitude&sats=$satellites&rsrp=$rsrp";
+:local url "https://$serverurl:$serverport/$url";
 
-
-# LTE Info
-:local lte1info [:file get lte1info.txt contents];
-:local imeistart [:find $lte1info "imei"];
-:local imeiend [:find $lte1info "\n" $imeistart];
-:local imei [:pick $lte1info ($imeistart +6) ($imeiend)];
-:local techstart [:find $lte1info "access"];
-:local techend [:find $lte1info "\n" $techstart];
-:local techno [:pick $lte1info ($techstart +19) ($techend)];
-:local technology;
-:if ($techno ="GSM compact") do={[:set technology "GSM";]}
-:if ($techno ="3G") do={:set technology "UMTS";}
-:if ($techno ="Evolved 3G (LTE)") do={[:set technology "LTE";]}
-
-
-:if ([:find $gpstext "yes" $validstart] > 0) do={:set valid true;};
-
-:local longitude [:pick $gpstext ($longstart + 11) $longend];
-:local degreestart [:find $longitude " " -1];
-:local minutestart [:find $longitude " " $degreestart];
-:local secondstart [:find $longitude "'" $minutestart];
-
-:local secondend;
-:local secfract;
-
-:if ([:len [:find $longitude "." 0]] < 1) do={
-    :set secondend [:find $longitude "'" $secondstart];
-    :set secfract "0";
-} else={
-    :set secondend [:find $longitude "." $secondstart];
-    :set secfract [:pick $longitude ($secondend + 1) ($secondend + 2)];
-};
-
-:local longdegree;
-:local longdegreelink;
-
-:if ([:pick $longitude 0 1] = "W") do={
-    :set longdegree "-";
-    :set longdegreelink "W";
-} else={
-    :set longdegree "+";
-    :set longdegreelink "E";
-};
-
-:set longdegree ($longdegree . [:pick $longitude 2 $minutestart]);
-:set longdegreelink ($longdegreelink . [:pick $longitude 2 $minutestart]);
-:local longmin [:pick $longitude ($minutestart + 1) $secondstart];
-:local longsec [:pick $longitude ($secondstart + 2) $secondend];
-:local longfract ((([:tonum $longmin] * 6000) + ([:tonum $longsec] * 100) + ([:tonum $secfract] * 10) ) / 36);
-
-:while (([:len $zeros] + [:len $longfract]) < 4) do={
-    :set zeros ($zeros . "0");
-};
-
-:local newlong ($longdegree . "." . $zeros . $longfract);
-:local newlonglink ($longdegreelink . "." . $zeros . $longfract);
-
-:local latitude [:pick $gpstext (latstart + 10) $latend];
-:set degreestart [:find $latitude " " -1];
-:set minutestart [:find $latitude " " $degreestart];
-:set secondstart [:find $latitude "'" $minutestart];
-
-:if ([:len [:find $latitude "." 0]] < 1) do={
-    :set secondend [:find $latitude "'" $secondstart];
-    :set secfract "0";
-} else={
-    :set secondend [:find $latitude "." $secondstart];
-    :set secfract [:pick $latitude ($secondend + 1) ($secondend +2)];
-};
-
-:local latdegree;
-:local latdegreelink;
-
-:if ([:pick $latitude 0 1] = "N") do={
-    :set latdegree "+";
-    :set latdegreelink "N";
-} else={
-    :set latdegree "-";
-    :set latdegreelink "S";
-};
-
-:set latdegree ($latdegree . [:pick $latitude 2 $minutestart]);
-:set latdegreelink ($latdegreelink . [:pick $latitude 2 $minutestart]);
-:local latmin [:pick $latitude ($minutestart + 1) $secondstart];
-:local latsec [:pick $latitude ($secondstart + 2) $secondend];
-:local latfract ((([:tonum $latmin] * 6000) + ([:tonum $latsec] * 100) +([:tonum $secfract] * 10)) / 36);
-
-:set zeros "";
-
-:while (([:len $zeros] + [:len $latfract]) < 4) do={
-    :set zeros ($zeros . "0");
-};
-
-:local newlat ($latdegree . $zeros . $latfract);
-:local newlatlink ($latdegreelink . "." . $zeros . $latfract);
-
-:local coordinates ($newlong . "," . $newlat);
-
-:global fncJD do={
-:local months [:toarray "jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec"];
-:local jd
-:local M [:pick $1 0 3];
-:local D [:pick $1 4 6];
-:local Y [:pick $1 7 11];
-:for x from=0 to=([:len $months] - 1) do={
-   :if ([:tostr [:pick $months $x]] = $M) do={:set M ($x + 1) } 
-   }
-:if ( $M = 1 || $M = 2) do={
-    :set Y ($Y-1);
-    :set M ($M+12);
-}
-:local A ($Y/100)
-:local B ($A/4)
-:local C (2-$A+$B)
-:local E ((($Y+4716) * 36525)/100)
-:local F ((306001*($M+1))/10000)
-:local jd ($C+$D+$E+$F-1525)
-:return $jd
-};
-
-:global timestamp do={
-:global fncJD $fncJD
-:local currtime [/system clock get time];
-:local jdnow [$fncJD [/system clock get date]]
-:local days ($jdnow - 2440587)
-:local ore [:pick $currtime 0 2]
-:local minute [:pick $currtime 3 5]
-:local secunde [:pick $currtime 6 8]
-:return (($days * 86400) + ($ore * 3600) + ($minute * 60) + $secunde - [/system clock get gmt-offset]);
+:if ($debug = 1) do={
+   :log info message="gpstext:$gpstext";
+   :log info message="lte1info:$lte1info";
+   :log info message="altitude:$altitude";
+   :log info message="bearing:$bearing";
+   :log info message="latitude:$latitude";
+   :log info message="longitude:$longitude";
+   :log info message="rsrp:$rsrp";
+   :log info message="satellites:$satellites";
+   :log info message="serverport:$serverport";
+   :log info message="serverurl:$serverurl";
+   :log info message="speed:$speed";
+   :log info message="traccarid$traccarid";
+   :log info message="url:$url";
 }
 
+#POST THE UPDATE 
 :log info message="GPS Script: Posting update";
-
-:local mystamp [$timestamp];
-
-:do {/tool fetch keep-result=no url=("https://" . $serverurl . ":" . $serverport ."/\?id=$traccarid&lat=$newlat&lon=$newlong&timestamp=$mystamp&altitude=$altitude&speed=$speed&course=$bearing&satelites=$satellites&gps=$satellites")
+:do { /tool fetch keep-result=no url=$url; 
 } on-error={:log error message="Fetch failed..."}
 
 :log info message="GPS Script: Posting update DONE";
