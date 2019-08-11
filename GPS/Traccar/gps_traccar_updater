@@ -30,7 +30,8 @@
    :local speedstart [:find $gpstext "speed"];
    :local speedend [:find $gpstext "." $speedstart];
    :local speed [;pick $gpstext ($speedstart +7) ($speedend +3)];
-
+   :local speed = $speed / 1.852;
+   
    :local altitudestart [:find $gpstext "altitude"];
    :local altitudeend [:find $gpstext "." $altitudestart];
    :local altitude [;pick $gpstext ($altitudestart +10) ($altitudeend +3)];
