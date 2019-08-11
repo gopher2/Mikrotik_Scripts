@@ -1,7 +1,7 @@
 #CHANGE THE 3 LINES BELOW TO POINT TO YOUR TRACCAR SERVER
-:local serverurl "gps.moses.host";
+:local serverurl "gps.server.host";
 :local serverport "8455";
-:local traccarid "355509090063851";
+:local traccarid "123456";
 :local debug 0;
 
 #QUERY THE SYSTEM AND DUMP DATA INTO FILES FOR PARSING
