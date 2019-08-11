@@ -2,75 +2,74 @@
 :local serverurl "gps.server.host";
 :local serverport "8455";
 :local traccarid "123456";
+:local logging 1;
 :local debug 0;
 
 #QUERY THE SYSTEM AND DUMP DATA INTO FILES FOR PARSING
-:log info message="GPS Script: Polling System Data";
+:if ($logging = 1) do={ :log info message="GPS Script: Polling System Data"; }
 :system gps monitor once file="gps.txt";
 :local gpstext [/file get gps.txt contents];
 :interface lte info lte1 file="lte1info.txt";
 :local lte1info [:file get lte1info.txt contents];
 
 # PARSE STRINGS
-
 :local validstart [:find $gpstext "valid" -1];
 :local validend [:find $gpstext "\n" $validstart];
 
 # PROCEEDED IF WE HAVE VAILD GPS
 :if ([:find $gpstext "yes" $validstart] > 0) do={
 
-:local longstart [:find $gpstext "longitude" -1];
-:local longend [:find $gpstext "\n" $longstart];
-:local longitude [:pick $gpstext ($longstart + 11) $longend];
+   :local longstart [:find $gpstext "longitude" -1];
+   :local longend [:find $gpstext "\n" $longstart];
+   :local longitude [:pick $gpstext ($longstart + 11) $longend];
 
-:local latstart [:find $gpstext "latitude" -1];
-:local latend [:find $gpstext "\n" $latstart];
-:local latitude [:pick $gpstext (latstart + 10) $latend];
+   :local latstart [:find $gpstext "latitude" -1];
+   :local latend [:find $gpstext "\n" $latstart];
+   :local latitude [:pick $gpstext (latstart + 10) $latend];
 
-:local speedstart [:find $gpstext "speed"];
-:local speedend [:find $gpstext "." $speedstart];
-:local speed [;pick $gpstext ($speedstart +7) ($speedend +3)];
+   :local speedstart [:find $gpstext "speed"];
+   :local speedend [:find $gpstext "." $speedstart];
+   :local speed [;pick $gpstext ($speedstart +7) ($speedend +3)];
 
-:local altitudestart [:find $gpstext "altitude"];
-:local altitudeend [:find $gpstext "." $altitudestart];
-:local altitude [;pick $gpstext ($altitudestart +10) ($altitudeend +3)];
+   :local altitudestart [:find $gpstext "altitude"];
+   :local altitudeend [:find $gpstext "." $altitudestart];
+   :local altitude [;pick $gpstext ($altitudestart +10) ($altitudeend +3)];
 
-:local satellitesstart [:find $gpstext "satellites"];
-:local satellitesend [:find $gpstext "\n" $satellitesstart];
-:local satellites [;pick $gpstext ($satellitesstart +12) ($satellitesend)];
+   :local satellitesstart [:find $gpstext "satellites"];
+   :local satellitesend [:find $gpstext "\n" $satellitesstart];
+   :local satellites [;pick $gpstext ($satellitesstart +12) ($satellitesend)];
 
-:local bearingstart [:find $gpstext "true-bearing"];
-:local bearingend [:find $gpstext "\n" $bearingstart];
-:local bearing [;pick $gpstext ($bearingstart +15) ($bearingend -10)];
+   :local bearingstart [:find $gpstext "true-bearing"];
+   :local bearingend [:find $gpstext "\n" $bearingstart];
+   :local bearing [;pick $gpstext ($bearingstart +15) ($bearingend -10)];
 
-:local rsrpstart  [:find $lte1info "rsrp"];
-:local rsrpend [:find $lte1info "\n" $rsrpstart];
-:local rsrp [:pick $lte1info ($rsrpstart + 6) ($rsrpend-3)];
+   :local rsrpstart  [:find $lte1info "rsrp"];
+   :local rsrpend [:find $lte1info "\n" $rsrpstart];
+   :local rsrp [:pick $lte1info ($rsrpstart + 6) ($rsrpend-3)];
 
-:local url "?id=$traccarid&lat=$latitude&lon=$longitude&speed=$speed&bearing=$bearing&altitude=$altitude&sats=$satellites&rsrp=$rsrp";
-:local url "https://$serverurl:$serverport/$url";
+   :local url "?id=$traccarid&lat=$latitude&lon=$longitude&speed=$speed&bearing=$bearing&altitude=$altitude&sats=$satellites&rsrp=$rsrp";
+   :local url "https://$serverurl:$serverport/$url";
 
-:if ($debug = 1) do={
-   :log info message="gpstext:$gpstext";
-   :log info message="lte1info:$lte1info";
-   :log info message="altitude:$altitude";
-   :log info message="bearing:$bearing";
-   :log info message="latitude:$latitude";
-   :log info message="longitude:$longitude";
-   :log info message="rsrp:$rsrp";
-   :log info message="satellites:$satellites";
-   :log info message="serverport:$serverport";
-   :log info message="serverurl:$serverurl";
-   :log info message="speed:$speed";
-   :log info message="traccarid$traccarid";
-   :log info message="url:$url";
+   :if ($debug = 1) do={
+      :log info message="GPS Script: gpstext:$gpstext";
+      :log info message="GPS Script: lte1info:$lte1info";
+      :log info message="GPS Script: altitude:$altitude";
+      :log info message="GPS Script: bearing:$bearing";
+      :log info message="GPS Script: latitude:$latitude";
+      :log info message="GPS Script: longitude:$longitude";
+      :log info message="GPS Script: rsrp:$rsrp";
+      :log info message="GPS Script: satellites:$satellites";
+      :log info message="GPS Script: serverport:$serverport";
+      :log info message="GPS Script: serverurl:$serverurl";
+      :log info message="GPS Script: speed:$speed";
+      :log info message="GPS Script: traccarid$traccarid";
+      :log info message="GPS Script: url:$url";
+   }
+
+   #POST THE UPDATE 
+   :if ($logging = 1) do={:log info message="GPS Script: Posting update";}
+   :do { /tool fetch keep-result=no url=$url; 
+   } on-error={if ($logging = 1) do={:log error message="GPS Script: Fetch failed..."}}
+   :if ($logging = 1) do={:log info message="GPS Script: Posting update DONE";}
 }
-
-#POST THE UPDATE 
-:log info message="GPS Script: Posting update";
-:do { /tool fetch keep-result=no url=$url; 
-} on-error={:log error message="Fetch failed..."}
-
-:log info message="GPS Script: Posting update DONE";
-}
-:log info message="GPS Script: Script Terminated";
+:if ($logging = 1) do={:log info message="GPS Script: Script Terminated";}
